@@ -1,6 +1,7 @@
 import fs from 'fs';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import delay from 'await-delay';
 
 dotenv.config();
 
@@ -78,14 +79,18 @@ async function checkLatestBoughtAt(): Promise<void> {
         const btcRate = await getBtcExchangeRate();
 
         if (btcRate) {
-          const nodesToUpdate = activity.filter((node : Node) => node.escrow.bought_at > previousBoughtAt);
-
+          const nodesToUpdate = activity.filter((node : Node) => node.escrow.bought_at > previousBoughtAt).sort((a: { escrow: { bought_at: string; }; }, b: { escrow: { bought_at: string; }; }) => Date.parse(a.escrow.bought_at) - Date.parse(b.escrow.bought_at));
           if (nodesToUpdate.length > 0) {
+            fs.writeFile('latest_bought_at.txt', latestBoughtAt, { flag: 'w' }, (err) => {
+              if (err) throw err;
+              console.log(`Successfully updated latest bought_at timestamp: ${latestBoughtAt}`);
+            });
             for (const node of nodesToUpdate) {
               const priceInBtc = node.escrow.satoshi_price / 100000000;
               const priceInUsd = priceInBtc * btcRate;
               const message = `${node.meta.name} just sold for ${priceInBtc} BTC ($${priceInUsd.toFixed(2)}) on @ordinalswallet! Check it out :point_down:  https://ordinalswallet.com/inscription/${node.id}`;
-              await sendMessageToDiscordChannel(message);
+              await delay(1000);
+              await sendMessageToDiscordChannel(message);              
             }
 
             const updateDiscord = nodesToUpdate.map((node : Node) => {
@@ -99,10 +104,6 @@ async function checkLatestBoughtAt(): Promise<void> {
               console.log(`Successfully saved update to Discord: ${updateDiscord}`);
             });
 
-            fs.writeFile('latest_bought_at.txt', latestBoughtAt, { flag: 'w' }, (err) => {
-              if (err) throw err;
-              console.log(`Successfully updated latest bought_at timestamp: ${latestBoughtAt}`);
-            });
           } else {
             console.log('No updates found.');
           }
@@ -116,9 +117,25 @@ async function checkLatestBoughtAt(): Promise<void> {
   }
 }
 
+async function wait(ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, ms);
+  });
+}
+
+async function runBot(interval: string) {
+  while (true) {
+    await checkLatestBoughtAt();
+    await wait(parseInt(interval)); // wait for `interval` milliseconds before checking again
+  }
+}
+
 if (typeof interval === 'string') {
-  setInterval(checkLatestBoughtAt, parseInt(interval));
+  runBot(interval);
 } else {
   console.error('Interval is not defined');
 }
+
 

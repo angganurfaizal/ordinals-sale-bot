@@ -27,7 +27,7 @@ Compile TypeScript:
 npx tsc
 ```
 
-Configure environment: Copy .env.example to .env and set the following variables:
+Configure environment: copy .env.example to .env and set the following variables:
 ```
 DISCORD_WEBHOOK_URL: Your Discord webhook URL.
 COLLECTION_SLUG: Your collection's slug.
